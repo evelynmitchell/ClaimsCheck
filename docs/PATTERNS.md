@@ -27,6 +27,10 @@ established elsewhere, or omitted as obvious from shared context.
 **Signal.** Modality escalates across assertions — `hedged → plain → emphatic → absolute` —
 with no new supporting evidence in between.
 
+**Scope.** Personal. Escalation is a habit, and naming whose habit it is turns the tool into
+a scoreboard. The claim-level fact (this claim hardened without evidence) is shared; the
+actor-level pattern is not.
+
 **Why it matters.** Confidence rising while evidence stays flat is the pure form of the
 problem. The "no new evidence" condition is what makes it a finding rather than an
 observation, since escalation *after* a receipt lands is correct behavior.
@@ -48,6 +52,9 @@ Cycles are structural facts about the graph.
 ### 4. Single-source amplification
 **Signal.** Many assertions by many distinct actors, all provenance-traceable to one
 unverified origin.
+
+**Signal detail.** Computed over `actor_ref` distinctness, which needs no name resolved —
+the detector fires identically inside and outside a personal scope.
 
 **Why it matters.** Entrenchment scoring rewards distinct actors as a proxy for
 independence. This is the case where that proxy is wrong, and it must be corrected for
@@ -120,10 +127,15 @@ a claim being sharpened by contact with reality.
 
 1. **Explain by citation.** Every detection names the specific assertions, spans, and
    evidence rows that triggered it. No detection says only "this looks over-confident."
-2. **Precision gate.** A detector below 0.8 precision on the gold corpus ships disabled.
-3. **Dismissals are data.** Recorded with a reason, never deleted; field dismissal rate is
+2. **Scope by subject, not by author.** Detections about a *claim* (orphan entrenchment,
+   circular support, silent contradiction) are shared — they are facts about the project.
+   Detections about an *actor's habits* (hedge decay, fast climb) surface only in that
+   actor's own scope, aggregated and pseudonymous elsewhere. Agent actors are exempt:
+   `actor_kind = agent` detections are shared openly.
+3. **Precision gate.** A detector below 0.8 precision on the gold corpus ships disabled.
+4. **Dismissals are data.** Recorded with a reason, never deleted; field dismissal rate is
    the real precision measurement.
-4. **One comment per PR.** Detections aggregate into a single surface. Per-detection
+5. **One comment per PR.** Detections aggregate into a single surface. Per-detection
    notifications are how this class of tool gets muted in its first week.
-5. **Detectors are claims too.** Each detector's precision claim lives in the ledger, with
+6. **Detectors are claims too.** Each detector's precision claim lives in the ledger, with
    the corpus run as its receipt.

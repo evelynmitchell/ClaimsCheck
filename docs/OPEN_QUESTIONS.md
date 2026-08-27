@@ -1,48 +1,86 @@
 # Open Questions
 
-Each question states the **default assumed in the plan**, so work can proceed without an
-answer, and what changes if the answer differs.
+Resolved decisions are recorded here rather than moved out, so the reasoning behind them
+stays next to the questions still open.
 
 ---
 
-## Q1 — Implementation stack
+# Resolved
 
-**Default:** Python 3.11+, SQLite, `uv` for packaging, `pytest`. Chosen for agent-tooling
-ecosystem and the fact that the first receipt connectors (junit-xml, coverage) are
-Python-native.
+## Q1 — Implementation stack — **RESOLVED: Python + SQLite**
 
-**If different:** TypeScript is the main alternative and would follow if the primary
-surface turns out to be an editor extension rather than a CLI. Cost of switching after P1
-is roughly a week; after P3, substantial.
+Python 3.11+, SQLite, `uv` for packaging, `pytest`. The first receipt connectors
+(junit-xml, coverage) are Python-native, and the primary surfaces are a CLI and an MCP
+server rather than an editor extension.
+
+*Consequence:* P1 starts with a `claimscheck` package and a migration cut from
+`DATA_MODEL.md`. Revisiting after P3 would be expensive; before P1 it is nearly free.
+
+## Q2 — First ingest source — **RESOLVED: all three (transcripts, PR/issue threads, design docs)**
+
+The gold corpus spans agent session transcripts, PR and issue threads, and design docs/RFCs.
+
+*Consequence, stated plainly:* this is the more expensive answer and the plan absorbs the
+cost rather than hiding it.
+
+- P0 corpus stratifies across three source types, so 30–50 traces means roughly 12–16 of
+  each rather than 40 of one. Annotation agreement is measured **per source type** — claim
+  boundaries in an RFC are a different judgment than in a transcript, and one aggregate
+  number would hide that.
+- P2 builds three adapters instead of one. **Estimate rises from 3 to 4 weeks.**
+- Design docs and RFCs are the awkward case: claim-dense but receipt-poor, so P3's evidence
+  binding will serve them badly at first. They are still worth annotating from the start,
+  because they are the sharpest test of whether the falsifier machinery generalizes past
+  testing claims. Expect their claims to sit at L0/L1 for a long time, and treat that as a
+  measurement rather than a defect.
+- Order of implementation stays transcripts → PR threads → design docs, so the receipt-rich
+  sources prove the loop before the receipt-poor one stresses it.
+
+## Q3 — Entry policy — **RESOLVED: write freely, quarantine low-confidence**
+
+Agents record claims in-loop without a human gate. Extractions below the confidence
+threshold enter `quarantined` and are excluded from all scoring until confirmed.
+
+*Consequence:* `review_state` is in the P1 schema from the first migration, and scoring
+reads only `active` and `confirmed` rows. See `DATA_MODEL.md` § Review state.
+
+The quarantine threshold itself is a tuning parameter, calibrated in P2 against the corpus:
+set too high, the queue fills and nobody drains it, which is the failure mode this answer
+was chosen to avoid.
+
+## Q7 — Whose claims — **RESOLVED: personal ledgers, shared aggregates**
+
+Attribution is personal; propositions and evidence are shared.
+
+This needs care, because the naive reading breaks the system. Repetition can only be counted
+across people — a claim asserted by six people is the exact case the project exists to
+catch — so the claim, assertion, and evidence layer must be **shared**. What is scoped is
+**who said it**.
+
+The resulting rule:
+
+| Layer | Visibility |
+|---|---|
+| Claims, evidence, links, scores | Shared. Assumption debt is a project fact |
+| Assertion existence, count, modality, timing | Shared. Repetition stays countable |
+| Assertion *attribution* to a named person | Visible in that person's own scope only; elsewhere a stable per-claim pseudonym |
+| Actor-level detections (your hedge decay, your fast climbs) | Personal scope only |
+| Component-level and project-level aggregates | Shared |
+
+Agent-authored assertions are attributed openly — `actor_kind = agent` carries no social
+cost, and agent drift is what we most need to see.
+
+*Consequence:* pseudonyms are stable **per claim**, not globally. Globally stable ones would
+be trivially de-anonymized by cross-referencing timestamps against commit history, which
+would quietly reintroduce the leaderboard this decision exists to prevent. Per-claim
+pseudonyms still let a detector say "four distinct actors, one source" without saying who.
+See `DATA_MODEL.md` § Attribution scoping.
 
 ---
 
-## Q2 — First ingest source
+# Still open
 
-**Default:** Claude Code / agent session transcripts, then PR threads.
-
-**Why it matters:** Transcripts are dense, structured, and available in volume, which suits
-the gold corpus. PR threads are sparser but have human claims and adjacent receipts, so
-they show adoption value sooner. This choice sets which adapter and which annotation guide
-get written first.
-
-**Question:** Which traces do you actually have on hand and are willing to annotate? That
-availability should probably decide this rather than the argument above.
-
----
-
-## Q3 — Human review before entry, or write-then-review
-
-**Default:** Agents write to the ledger freely; low-confidence extractions are quarantined
-into a review queue and excluded from scoring until confirmed.
-
-**Alternative:** Nothing enters without human confirmation. Much higher precision, and in
-practice the queue never gets drained.
-
-**This changes P1's schema** (a review-state column and its transitions), so it is the
-question most worth answering before P1 starts.
-
----
+Each states the **default assumed in the plan**, so work proceeds without an answer.
 
 ## Q4 — Confidence representation
 
@@ -52,67 +90,58 @@ score (sortable, calibratable). The ladder is primary in every display.
 **Alternative:** Ladder only. Simpler and harder to misuse, but gives up the calibration
 study, which is the strongest evidence the whole approach works.
 
----
-
 ## Q5 — Local-first or shared service
 
-**Default:** Local-first SQLite, one ledger per repo, committed or synced as the team
-prefers.
+**Default:** Local-first SQLite, one ledger per repo.
 
-**Open:** A claim asserted in one repo's session about another repo's behavior has no
-natural home. Cross-repo claims are deferred to post-v1, but if that case is common for you,
-the storage decision in P1 should anticipate it.
+**Now sharper, given Q7:** "personal ledgers, shared aggregates" implies a visibility
+boundary, and SQLite has no access control. Two workable shapes:
 
----
+1. **Split store** — a shared ledger file plus a per-person attribution file that only that
+   person holds. Keeps local-first, at the cost of joins across two databases.
+2. **Attribution encrypted at rest** — one file, `actor` fields encrypted per-person.
+   Simpler operationally, but a shared key is a fiction and a real one needs key management.
+
+Default is (1). This should be settled before P1's migration, since it decides whether
+`actor` is a column or a foreign key into a separate store.
+
+Cross-repo claims remain deferred to post-v1.
 
 ## Q6 — Trace retention and redaction
 
 **Default:** Full traces stored locally with a redaction pass at ingest for obvious secrets;
 spans keep quoted text so detections can cite exact wording.
 
-**Open:** Do transcripts here contain anything (customer data, candid remarks about people)
-that makes storing quoted text a problem? The alternative — storing hashes and offsets
-without text — is implementable but makes every detection much harder to explain, and
-explainability is what keeps the detectors trusted.
+**Open, and now interacting with Q7:** quoted text is attribution by another route — a
+verbatim quote identifies its author to anyone who was in the room, regardless of
+pseudonymization. If personal scoping is to mean anything, quoted text in cross-scope views
+needs either paraphrase or suppression, and both weaken the explainability that keeps
+detectors trusted. Worth deciding deliberately rather than discovering in P6.
 
----
-
-## Q7 — Whose claims are in scope
-
-**Default:** Everyone's — human and agent alike, distinguished by `actor_kind`.
-
-**Open:** There is a real social dimension. A tool that publicly tracks which colleague
-over-claims most often will not be adopted twice. Options: agent claims only for v1;
-personal-scope ledgers with only aggregates shared; or full transparency by team agreement.
-**This is a values question, not a technical one, and it needs your answer rather than a
-default.**
-
----
+Design docs and RFCs raise this less (they are already shared artifacts); transcripts raise
+it most.
 
 ## Q8 — Blast radius derivation
 
 **Default:** Derived from `subject_ref` plus files touched by supporting test runs, expanded
 one hop through static imports.
 
-**Open:** This is under-specified and probably the weakest part of the decay model. Coarse
-radii make everything stale immediately; narrow ones miss real invalidations. Likely needs a
-tuning study of its own in P4 — flagging it now rather than discovering it there.
-
----
+**Open:** the weakest part of the decay model. Coarse radii make everything stale
+immediately; narrow ones miss real invalidations. Likely needs a tuning study of its own in
+P4 — flagged now rather than discovered there.
 
 ## Q9 — What "expansion beyond software testing" means concretely
 
 The plan sketches an order (testing → operations → design → planning) but the second step is
-not designed. Worth knowing now: is there a specific second domain you have in mind? It
-would change what stays generic versus what gets hardcoded for testing in P2–P4, and
-generality bought speculatively is usually wasted.
+not designed. Including design docs in the P0 corpus (Q2) partially pre-empts this — we will
+have annotated data from a receipt-poor domain before committing to one. Still worth knowing
+whether you have a specific second domain in mind, since generality bought speculatively is
+usually wasted.
 
----
-
-## Q10 — Is there prior art here you want followed
+## Q10 — Prior art to stay compatible with
 
 Argumentation frameworks (Toulmin, IBIS), assurance cases (GSN), provenance standards
 (PROV-O), and requirements traceability tooling all overlap this design. The plan uses none
-of them directly, on the grounds that each carries formalism costs disproportionate to a v1.
-If you want compatibility with any of them — particularly GSN, if this ever touches safety
-cases — that constrains the data model and should be decided before P1.
+directly, on the grounds that each carries formalism costs disproportionate to a v1. If you
+want compatibility with any — particularly GSN, if this ever touches safety cases — that
+constrains the data model and should be decided before P1.

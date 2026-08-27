@@ -34,7 +34,7 @@ assertions of the same claim is what makes that detectable.
 ### Claim
 A normalized proposition. One claim, many assertions.
 
-`id · canonical_text · subject_ref · polarity · context_id · falsifier · status · opened_at`
+`id · canonical_text · subject_ref · polarity · context_id · falsifier · status · opened_at · review_state`
 
 - `subject_ref` — what the claim is about: a code path, a test, a service, a requirement.
   Links the claim to the artifacts whose change should invalidate it.
@@ -45,12 +45,13 @@ A normalized proposition. One claim, many assertions.
 ### Assertion
 One occurrence of a claim being made. **This is the entity that makes repetition countable.**
 
-`id · claim_id · trace_id · span_id · actor · actor_kind · asserted_at · modality · context_id · extraction_confidence`
+`id · claim_id · trace_id · span_id · actor_ref · actor_kind · asserted_at · modality · context_id · extraction_confidence · review_state`
 
 - `modality` — expressed confidence in the utterance itself: `hedged · plain · emphatic ·
   absolute`. Tracking this per assertion is what makes hedge decay measurable.
 - `actor_kind` — `human · agent · tool · document`. Amplification by agents is worth
   distinguishing from amplification by people.
+- `actor_ref` — an indirection, not a name. See § Attribution scoping.
 - `context_id` — the context *of this assertion*, which may be narrower or broader than
   the claim's. Divergence is the erosion signal.
 
@@ -93,6 +94,49 @@ A pattern detector's finding.
 Dismissals are recorded, not deleted — dismissal rate per detector is how we measure
 precision in the field rather than only on the corpus.
 
+## Review state
+
+Agents write to the ledger freely; nothing waits on a human. What protects the ledger from
+weak extraction is not a gate but a **quarantine**.
+
+`review_state` — `active · quarantined · confirmed · rejected`
+
+- Extractions at or above the confidence threshold enter `active` and score normally.
+- Extractions below it enter `quarantined`: stored, queryable, visible in the trace, and
+  **excluded from every score and detector**. They are on the record without being counted.
+- A human confirming one moves it to `confirmed`; rejecting moves it to `rejected`. Both are
+  new revisions, never edits.
+- `rejected` rows stay in the store. Rejection rate per extractor version is how we measure
+  extraction quality in the field rather than only on the corpus.
+
+The threshold is tuned in P2. Set too high, the quarantine becomes the review queue nobody
+drains — the exact failure the write-freely policy was chosen to avoid — so quarantine depth
+is monitored as a health metric in its own right.
+
+## Attribution scoping
+
+Attribution is personal; propositions and evidence are shared. The split is load-bearing,
+because repetition is only countable **across** people, so the claim and assertion layer
+cannot be partitioned per person.
+
+`actor_ref` therefore resolves differently depending on who is asking:
+
+- **In the asserter's own scope** — resolves to their identity.
+- **Anywhere else** — resolves to a pseudonym derived from `(actor, claim_id)`.
+
+Per-claim, not global. A globally stable pseudonym would be de-anonymized in an afternoon by
+correlating assertion timestamps against commit history, which would silently reinstate the
+attribution leaderboard this design exists to prevent. Per-claim pseudonyms still support
+the query that matters — *"four distinct actors, all tracing to one unverified source"* —
+without naming anyone.
+
+Agent assertions (`actor_kind = agent`) are attributed openly. An agent carries no social
+cost from being shown to over-claim, and agent drift is the signal we most want visible.
+
+Quoted span text is attribution by another route: a verbatim quote identifies its author to
+anyone who was present. Cross-scope views must paraphrase or suppress it, at a real cost to
+detector explainability. This is unresolved — see `OPEN_QUESTIONS.md` Q6.
+
 ## Relationships
 
 ```
@@ -107,12 +151,19 @@ Trace 1─* Span 1─* Assertion *─1 Claim 1─* Score
 
 ## Storage
 
-**SQLite, local-first.** Single file, easy to inspect, easy to version, no service to run.
+**Python 3.11+ with SQLite, local-first.** Single file, easy to inspect, easy to version,
+no service to run.
 The append-only property is enforced by triggers rejecting `UPDATE` and `DELETE` on the
 core tables, and there is a test that attempts both.
 
 Derived state (current status, latest score) lives in views over the log rather than in
 mutable columns. Slower; correct by construction; the right trade at this size.
+
+SQLite has no access control, so the attribution boundary above cannot be enforced within
+one file. The assumed shape is a **split store**: a shared ledger plus a per-person
+attribution database that only that person holds, with `actor_ref` a foreign key across the
+boundary rather than a column. This must be settled before the first migration — see
+`OPEN_QUESTIONS.md` Q5.
 
 If a shared team ledger becomes necessary, the log ships to Postgres unchanged — the
 append-only design makes that a replication problem rather than a rewrite. Deferring that

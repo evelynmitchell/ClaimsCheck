@@ -26,6 +26,17 @@ The rung is a floor, not a score: a claim at L3 with one narrow test and a claim
 a thorough property test are not equally supported. The rung constrains support; evidence
 quality sets it within that band.
 
+## What counts toward a score
+
+Only assertions and evidence in `review_state` `active` or `confirmed` contribute. Anything
+`quarantined` is stored, visible in the trace, and worth **zero** — to support and to
+entrenchment alike.
+
+Excluding quarantined rows from *entrenchment* as well as support is the non-obvious half.
+A weakly-extracted assertion that may not have been made should not inflate the repetition
+count any more than it inflates the evidence, or a noisy extractor would manufacture
+assumption debt out of its own errors.
+
 ## Two numbers, tracked separately
 
 ### Support ∈ [0, 1] — evidence only
@@ -46,7 +57,9 @@ Contributions from:
 - **assertion count**, with sharply diminishing returns
 - **distinct actors**, weighted higher than repetition by one actor — though see
   single-source amplification in `PATTERNS.md`, since distinct actors restating one origin
-  is not independence
+  is not independence. Distinctness is computable from `actor_ref` without resolving any
+  name, which is what lets entrenchment stay a shared, project-level number while
+  attribution stays personal
 - **modality escalation** — hedged → absolute over time
 - **downstream dependence** — decisions, code, and other claims that cite this one
 - **survival time** unchallenged

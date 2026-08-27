@@ -116,6 +116,11 @@ Every row has a falsifier we can automate. Where the loop works, we learn the me
 extraction, linking, decay, and calibration under conditions where we can measure whether
 we are right. Only then do we widen.
 
+Design docs and RFCs are in the P0 corpus from the start even though P3 will bind evidence
+to them poorly. That is deliberate: they are the sharpest available test of whether the
+falsifier machinery generalizes beyond domains where receipts are cheap, and we would rather
+learn that in week two than in month five.
+
 **Expansion order** (deferred, sketched for direction): testing claims → operational and
 incident claims (telemetry receipts) → architecture and design claims (weaker receipts,
 stronger need for explicit falsifiers) → cross-team planning claims. Each step trades
@@ -157,28 +162,42 @@ demonstrable artifact, and each is independently useful if the next never happen
 
 ### P0 — Specification and gold corpus *(2 weeks)*
 - Ratify the data model, confidence ladder, and detector catalog in this repo.
-- Assemble the **gold corpus**: 30–50 real traces (agent sessions, PR threads) hand-annotated
-  with claims, contexts, and expected confidence. This is the most valuable artifact in the
-  project and the one most likely to be skipped under time pressure. It is not skippable.
-- Write the annotation guide; measure inter-annotator agreement on a 10-trace overlap. If
-  two humans cannot agree what a claim is, no extractor will.
-- **Exit:** corpus committed, agreement ≥ 0.7 on claim boundaries, model docs reviewed.
+- Assemble the **gold corpus**: 30–50 real traces hand-annotated with claims, contexts, and
+  expected confidence. This is the most valuable artifact in the project and the one most
+  likely to be skipped under time pressure. It is not skippable.
+- **Stratified across three source types** — agent session transcripts, PR/issue threads,
+  and design docs/RFCs — roughly 12–16 each rather than 40 of one.
+- Write the annotation guide; measure inter-annotator agreement on a 10-trace overlap,
+  reported **per source type**. Claim boundaries in an RFC are a different judgment call
+  than in a transcript, and one aggregate number would hide a weak type behind a strong one.
+- **Exit:** corpus committed, agreement ≥ 0.7 on claim boundaries *in each source type*,
+  model docs reviewed.
 
 ### P1 — Ledger core *(2 weeks)*
+- Python 3.11+ / SQLite, packaged with `uv`, tested with `pytest`.
 - Append-only store: claims, assertions, contexts, evidence, links, scores. Content-addressed
   IDs; no destructive updates, ever. Corrections are new revisions with a supersedes edge.
+- `review_state` in the first migration, since scoring must read only `active` and
+  `confirmed` rows from the beginning.
+- Attribution split: `actor_ref` as an indirection rather than a name, so the personal-scope
+  boundary is structural rather than bolted on later.
 - CLI: `claim add|show|list`, `evidence add`, `link`, `export`.
 - Manual entry only. Deliberately: the ledger must be useful to a human with no extraction
   at all, or we will not be able to tell whether later failures are storage or extraction.
 - **Exit:** a human can record and query a claim's full history; the store round-trips and
   the append-only property has a test that tries to violate it.
 
-### P2 — Extraction *(3 weeks)*
-- Trace adapters: agent transcripts first, then PR/issue threads.
+### P2 — Extraction *(4 weeks)*
+- Three trace adapters, built in receipt-richness order: agent transcripts, then PR/issue
+  threads, then design docs/RFCs. The receipt-rich sources prove the loop before the
+  receipt-poor one stresses it.
 - Claim, context, and modality extraction with structured output and span anchoring.
 - Claim normalization and linking (is this the same claim as one we've seen?).
+- Quarantine threshold tuning: the confidence level below which an extraction is stored but
+  not scored. Too high and the queue fills and never drains, which is the failure the
+  write-freely policy was chosen to avoid; quarantine depth is monitored, not just set.
 - **Eval harness** against the gold corpus: precision/recall on extraction, accuracy on
-  linking, reported per trace type.
+  linking, reported per source type.
 - **Exit:** extraction P/R ≥ 0.7 on the held-out split, linking accuracy ≥ 0.8, and a
   regression run that gates changes to the prompt or model.
 
@@ -219,8 +238,10 @@ demonstrable artifact, and each is independently useful if the next never happen
 - **Exit:** a go/no-go decision on widening scope, made from the data rather than from
   enthusiasm.
 
-**Total to a defensible v1: roughly 17 weeks**, of which P0 and P7 are the two most often
-cut and the two that determine whether any of it is true.
+**Total to a defensible v1: roughly 18 weeks**, of which P0 and P7 are the two most often
+cut and the two that determine whether any of it is true. The extra week over the original
+estimate is the cost of covering three source types rather than one — bought deliberately,
+in exchange for knowing early whether the model generalizes past receipt-rich domains.
 
 ## 9. Success criteria
 
@@ -250,11 +271,21 @@ Failing (3) means tuning. Failing (5) means the surfaces are wrong, whatever the
 | Ledger becomes an authority | Our own failure mode, applied to us | Scores never render without receipts; system self-claims live in the ledger |
 | Claim identity is genuinely hard | Same-claim detection is the linchpin for counting repetition, and paraphrase is subtle | Measured explicitly in P2 with its own metric; conservative default (prefer a new claim over a wrong merge — under-counting repetition is safer than fusing distinct claims) |
 | Transcript privacy | Traces contain credentials, customer data, candid remarks | Local-first store; redaction pass at ingest; retention policy set in P1, not later |
+| Design-doc claims never leave L0 | Receipt-poor by nature; a third of the corpus may stay unscoreable | Expected, and treated as a measurement of where the falsifier machinery stops working rather than as a defect. Their calibration is reported separately, never pooled with testing claims |
+| Attribution scoping leaks | Per-claim pseudonyms defeat timestamp correlation, but quoted text does not | Cross-scope views paraphrase or suppress quotes; the explainability cost is real and tracked as an open question (Q6) |
 | Calibration needs resolved outcomes | Confidence cannot be scored until claims resolve, and many never do | Resolution loop built in P3, not P7; explicitly track the never-resolved fraction as its own metric rather than dropping it |
 
 ## 11. Immediate next steps
 
-1. Answer `docs/OPEN_QUESTIONS.md` — several affect P1's shape directly.
-2. Nominate 10 source traces to seed the gold corpus.
-3. Write the annotation guide and run the agreement check.
-4. Cut the P1 schema from `docs/DATA_MODEL.md` into a migration.
+Q1, Q2, Q3 and Q7 are settled (see `docs/OPEN_QUESTIONS.md`). Two of the remainder gate P1's
+migration and should be answered before code is written:
+
+1. **Q5 — attribution storage shape.** Split store (shared ledger + per-person attribution
+   database) or encrypted `actor` fields. Decides whether `actor_ref` is a column or a
+   cross-database key. Blocking for P1.
+2. **Q6 — quoted text in cross-scope views.** A verbatim quote identifies its author however
+   well the ids are pseudonymized. Paraphrase, suppress, or accept the leak. Blocking for
+   the P6 surfaces, and cheaper to decide before spans are designed.
+3. Nominate the seed traces — roughly a dozen of each source type.
+4. Write the annotation guide, with per-source-type sections, and run the agreement check.
+5. Cut the P1 schema from `docs/DATA_MODEL.md` into a migration.

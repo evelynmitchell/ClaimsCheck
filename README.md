@@ -44,6 +44,17 @@ truth is cheap, it widens to contexts where it is not.
 - [`docs/PATTERNS.md`](docs/PATTERNS.md) — the drift and entrenchment detector catalog
 - [`docs/OPEN_QUESTIONS.md`](docs/OPEN_QUESTIONS.md) — decisions still needed
 
+## Decided so far
+
+- **Python 3.11+ / SQLite**, local-first, CLI and MCP server as the primary surfaces.
+- **Agents write freely**; low-confidence extractions are quarantined — stored and visible,
+  but excluded from every score until confirmed.
+- **Attribution is personal, propositions are shared.** Repetition is only countable across
+  people, so claims and evidence are shared; *who said it* is scoped to the asserter, with
+  per-claim pseudonyms elsewhere. Agent assertions are attributed openly.
+- **The gold corpus spans three source types** — agent transcripts, PR/issue threads, and
+  design docs/RFCs — so we learn early whether the model survives a receipt-poor domain.
+
 ## Status
 
 Planning. No implementation yet. Everything in these documents is itself a claim at
