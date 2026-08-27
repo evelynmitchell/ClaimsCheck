@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+
+# Ledger stores — never commit a claim ledger or its attribution database
+*.claimsdb
+*.claimsdb-*
+.claimscheck/
+
+# Traces may contain secrets, customer data, or candid remarks
+traces/raw/
+
+# Local
+.env
+.DS_Store
