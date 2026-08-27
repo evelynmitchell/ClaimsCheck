@@ -38,7 +38,26 @@ observation, since escalation *after* a receipt lands is correct behavior.
 **False-positive mode.** Evidence gathered outside the ledger, or a summarizer flattening
 hedges as a stylistic artifact rather than a belief change.
 
-### 3. Circular support
+### 3. Commentary promotion
+**Signal.** A claim whose `origin_kind` is `commentary` or `question` now being asserted at
+register `finding`, or cited as evidence for another claim, with no receipt acquired in
+between.
+
+**Why it matters.** This is the pattern the project was built around, caught at the moment it
+happens rather than after the failure. The statement was never a claim when it was made — it
+was an aside — so it never attracted the scrutiny a claim attracts, and it arrives at
+premise-hood having skipped every step that would have tested it.
+
+Unlike hedge decay, which tracks a claim getting firmer, this tracks a claim changing
+*category*. The two often co-occur but are independent: an aside can be promoted to a finding
+while staying hedged, and that is if anything harder to notice.
+
+**False-positive mode.** A remark that was casual in phrasing but grounded in real knowledge
+the speaker did not bother to cite — expertise expressed informally. Register extraction will
+also confuse `commentary` and `finding` on terse utterances, which makes this detector's
+precision a direct function of P2's register accuracy. Measure the two together.
+
+### 4. Circular support
 **Signal.** A cycle in the evidence DAG — a claim's support traces back to itself, usually
 through a document that cited it or a summary that restated it.
 
@@ -49,7 +68,7 @@ claim is easily ingested later as a source for it.
 **False-positive mode.** Nearly none, and the reason this detector is worth building first.
 Cycles are structural facts about the graph.
 
-### 4. Single-source amplification
+### 5. Single-source amplification
 **Signal.** Many assertions by many distinct actors, all provenance-traceable to one
 unverified origin.
 
@@ -63,7 +82,7 @@ rather than merely reported — a claim flagged here has its actor-diversity bon
 **False-positive mode.** Genuine independent confirmation that happens to cite the same
 convenient source afterward.
 
-### 5. Orphan entrenchment
+### 6. Orphan entrenchment
 **Signal.** Assumption debt above threshold and rising, with downstream dependence — a
 claim that has become load-bearing while never leaving L0/L1.
 
@@ -73,7 +92,7 @@ the only time the information is worth anything.
 **False-positive mode.** Claims that are genuinely not worth proving. Dismissal with a
 reason is the right outcome, and dismissal rate here is a health metric for the threshold.
 
-### 6. Silent contradiction
+### 7. Silent contradiction
 **Signal.** Two claims in the ledger with incompatible content and compatible contexts, both
 carrying non-trivial support.
 
@@ -83,7 +102,7 @@ contradiction is the symptom, the unstated scope is the bug.
 **False-positive mode.** Context incompatibility that the qualifier model failed to
 represent, which is the same weakness measured in P2.
 
-### 7. Stale guard
+### 8. Stale guard
 **Signal.** A claim at L3/L4 whose supporting test no longer executes the code in its
 subject reference — skipped, deleted, or made vacuous.
 
@@ -93,7 +112,7 @@ rather than earlier.
 
 **False-positive mode.** Coverage tooling gaps, especially with dynamic dispatch.
 
-### 8. Unfalsifiable claim
+### 9. Unfalsifiable claim
 **Signal.** No falsifier could be articulated for a claim, or the proposed falsifier is
 unobservable.
 
@@ -109,15 +128,15 @@ the ladder, so the finding is "sharpen this or accept it stays at L0 forever."
 Worth detecting too. A tool that only reports problems trains people to read it as noise,
 and the successes tell us which practices actually move claims up the ladder.
 
-### 9. Fast climb
+### 10. Fast climb
 A claim reaching L3+ within a short window of first assertion. Identifies the practices and
 the people that convert assertions into receipts efficiently.
 
-### 10. Honest retraction
+### 11. Honest retraction
 An asserted claim later refuted by its own author with evidence, and superseded rather than
 quietly dropped. The healthiest thing in the ledger; it should be visible and credited.
 
-### 11. Qualifier addition
+### 12. Qualifier addition
 Assertions that *narrow* context over time — the inverse of erosion, and the signature of
 a claim being sharpened by contact with reality.
 

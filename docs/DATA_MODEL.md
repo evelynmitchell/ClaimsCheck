@@ -34,21 +34,23 @@ assertions of the same claim is what makes that detectable.
 ### Claim
 A normalized proposition. One claim, many assertions.
 
-`id · canonical_text · subject_ref · polarity · context_id · falsifier · status · opened_at · review_state`
+`id · canonical_text · subject_ref · polarity · context_id · falsifier · status · opened_at · review_state · origin_kind`
 
 - `subject_ref` — what the claim is about: a code path, a test, a service, a requirement.
   Links the claim to the artifacts whose change should invalidate it.
 - `falsifier` — the observation that would show it false. Required. A claim with no
   articulable falsifier is recorded but flagged as unfalsifiable, which is itself the finding.
 - `status` — `open · supported · contested · refuted · stale · retired`
+- `origin_kind` — the register of the claim's *first* assertion. See § Register and origin.
 
 ### Assertion
 One occurrence of a claim being made. **This is the entity that makes repetition countable.**
 
-`id · claim_id · trace_id · span_id · actor_ref · actor_kind · asserted_at · modality · context_id · extraction_confidence · review_state`
+`id · claim_id · trace_id · span_id · actor_ref · actor_kind · asserted_at · modality · register · context_id · extraction_confidence · review_state`
 
 - `modality` — expressed confidence in the utterance itself: `hedged · plain · emphatic ·
   absolute`. Tracking this per assertion is what makes hedge decay measurable.
+- `register` — what kind of speech act this occurrence was. See § Register and origin.
 - `actor_kind` — `human · agent · tool · document`. Amplification by agents is worth
   distinguishing from amplification by people.
 - `actor_ref` — an indirection, not a name. See § Attribution scoping.
@@ -136,6 +138,39 @@ cost from being shown to over-claim, and agent drift is the signal we most want 
 Quoted span text is attribution by another route: a verbatim quote identifies its author to
 anyone who was present. Cross-scope views must paraphrase or suppress it, at a real cost to
 detector explainability. This is unresolved — see `OPEN_QUESTIONS.md` Q6.
+
+## Register and origin
+
+Modality captures how firmly something was said. **Register** captures something different
+and, for the pattern that motivates this project, more important: what kind of statement it
+was in the first place.
+
+`register` — `requirement · hypothesis · finding · commentary · question`
+
+- **requirement** — a stated need or constraint
+- **hypothesis** — offered as something to be checked, announcing its own provisionality
+- **finding** — presented as resting on evidence, whether or not it does
+- **commentary** — an aside, an impression, color; not a position anyone intended to defend
+- **question** — raised rather than asserted
+
+A claim's `origin_kind` is the register of its first assertion.
+
+**Why this is a field and not a note.** The failure this project targets is not primarily a
+wrong hypothesis — a hypothesis announces itself as unsettled and invites the checking that
+would settle it. The failure is a statement that was not making a claim at all being reused
+as though it were: commentary promoted to premise by nothing more than a later citation. That
+promotion is invisible unless the original register was recorded at the time it was said,
+because by the point anyone thinks to look, the aside and the finding are indistinguishable
+in the transcript.
+
+Register is per assertion, not per claim, because it changes across restatements — and that
+change is the signal. An assertion at `commentary` followed by an assertion of the same claim
+at `finding`, with nothing in between, is the pattern itself, caught in the act.
+
+Register is also the reason `question` is in the list. A question that gets restated as a
+finding is the same promotion with an even weaker starting point, and it is common enough in
+agent transcripts to be worth naming separately — a model asked to consider whether X holds
+will readily summarize the discussion as X holding.
 
 ## Relationships
 

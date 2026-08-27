@@ -1,20 +1,22 @@
 # ClaimsCheck
 
-**A ledger for claims, evidence, and confidence — so that repetition never substitutes for proof.**
+**A ledger for claims, evidence, and confidence — shared memory for collaborators separated
+by role or by time.**
 
-An overly confident statement, repeated enough times, quietly becomes an assumption.
-Nobody decides to believe it; it just stops being questioned. By the time it fails,
-its origin is untraceable and everything built on top of it is suspect.
+ClaimsCheck supports collaboration on a project — between people, between agents, and across
+time — by tracking the claims made about it: what was asserted, where each assertion was
+reused, what evidence stands behind it, and what that evidence actually supports.
 
-ClaimsCheck is a bookkeeping system that makes that failure mode visible. It records
-every claim made in the course of engineering work, the **context** the claim was made
-in, the **evidence** attached to it, and the **confidence** that evidence actually
-justifies — then tracks how each of those changes over time.
+The motivation is a pattern worth naming. A confident assertion gets made as **color
+commentary** — an aside, an impression, not a position anyone intended to defend. It is
+picked up and reused later, and by then nobody notices it was never grounded in a
+requirement, a hypothesis, or evidence. Somewhere between the remark and its reuse it was
+promoted from commentary to premise, without passing through any step that would have tested
+it.
 
-The model is borrowed from requirements tracking, where a need travels from *want* to
-*provided certainty* with test and telemetry receipts attached at each step. ClaimsCheck
-applies the same discipline to the informal claims that fill dialogue traces, PR threads,
-and design discussions.
+That origin is what makes the failure hard to catch. A wrong hypothesis announces itself as
+something to be checked. An aside does not, and so nothing ever checks it — it acquires the
+standing of a claim only in retrospect, by being used as one.
 
 ## The core signal
 

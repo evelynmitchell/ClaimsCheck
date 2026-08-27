@@ -1,7 +1,12 @@
 # Confidence Model
 
-Confidence is **computed, not declared**. A number nobody can trace back to receipts is
-the disease, not the cure.
+How well a claim is actually supported, expressed two ways: a rung on a ladder and a number
+on a scale, both derived from the receipts attached to the claim rather than from anyone's
+assessment of it.
+
+The model has two jobs. Place a claim honestly among others, so that a well-evidenced claim
+and a confidently-phrased one are not interchangeable. And stay calibrated as evidence ages,
+scope shifts, and the code underneath moves. Everything below serves one of those two.
 
 ## The ladder
 

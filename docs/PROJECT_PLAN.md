@@ -6,31 +6,57 @@ it works.
 
 ---
 
-## 1. Problem
+## 1. Purpose
 
-A statement made confidently and repeated often becomes load-bearing without ever being
-checked. This is not a reasoning failure by any single participant; it is an accounting
-failure across a conversation. The mechanics are consistent:
+ClaimsCheck supports collaboration on a project — between people, between agents, and
+across time — by tracking the claims made about it: what was asserted, where each assertion
+was reused, what evidence stands behind it, and what that evidence actually supports.
 
-1. **Origination.** Someone asserts something with more confidence than their evidence
-   supports — often reasonably, as a working hypothesis.
-2. **Context stripping.** The claim was true under qualifiers ("on the CI image", "for
-   small payloads", "as of last week"). Each restatement drops a qualifier, because
-   qualifiers are tedious to carry.
+Collaborators separated by time have the same problem as collaborators separated by role. A
+person returning to a project after two months and an agent starting a fresh session both
+inherit conclusions stripped of the context that produced them. The ledger is the artifact
+that carries that context forward, and building it is the project.
+
+## 2. The pattern that motivates it
+
+A confident assertion gets made as **color commentary** — an aside, an impression, not a
+position anyone intended to defend. It is picked up and reused later, and by then nobody
+notices it was never grounded in a requirement, a hypothesis, or evidence. Somewhere between
+the remark and its reuse it was promoted from commentary to premise, without passing through
+any step that would have tested it.
+
+The specifics matter for the design. The origin is not a wrong hypothesis — a hypothesis at
+least announces itself as something to be checked, and carries an expectation that someone
+will. The origin is a statement that was not making a claim at all, and so never attracted
+the scrutiny a claim attracts. It acquires the standing of a claim only in retrospect, by
+being used as one.
+
+This is why the ledger records what a statement **was when it was said**, not only what it
+says. See `DATA_MODEL.md` § Register and origin, and the commentary-promotion detector in
+`PATTERNS.md`.
+
+From there the drift is consistent:
+
+1. **Origination.** Something is said as commentary, or as a hypothesis stated more firmly
+   than its evidence supports.
+2. **Context stripping.** It held under qualifiers ("on the CI image", "for small payloads",
+   "as of last week"). Each restatement drops one, because qualifiers are tedious to carry.
 3. **Hedge decay.** "I think this is covered" → "this is covered" → "obviously that's
    covered".
-4. **Provenance collapse.** After a few hops, the claim's support is "we've been saying
-   this for a while." The single unverified origin is no longer reachable.
+4. **Provenance collapse.** After a few hops the support is "we've been saying this for a
+   while." The origin is no longer reachable, and if it were, it would turn out to be an
+   aside.
 5. **Load bearing.** Decisions accumulate on top of it. The cost of it being wrong rises
    monotonically while the evidence for it stays at zero.
-6. **Failure.** It breaks, expensively, and the post-mortem finds that nobody ever
-   actually checked.
+6. **Failure.** It breaks, expensively, and the post-mortem finds that nobody ever actually
+   checked.
 
-Agents make every step of this faster. They produce fluent, confident prose at volume,
-carry claims across sessions through summaries, and readily restate a prior conclusion as
-an established fact. The problem is not new but its rate is.
+Agents accelerate every step. They produce fluent, confident prose at volume, carry claims
+across sessions through summaries, and readily restate a prior aside as an established fact
+— a summary is exactly the mechanism that strips a statement of its original register. The
+problem is not new, but its rate is.
 
-## 2. The insight we are building on
+## 3. The insight we are building on
 
 Requirements engineering already solved a version of this. A requirement does not go from
 "wanted" to "done" by assertion; it climbs a defined ladder, and each rung demands a
@@ -49,7 +75,7 @@ persuasive by repetition. Claims in dialogue are. So the gap between the two —
 debt** — is the primary output of the system, and everything else exists to compute it
 honestly.
 
-## 3. Goals
+## 4. Goals
 
 **G1.** Every claim in a trace is recorded with its context, anchored to the exact span
 where it was said, and never silently mutated afterward.
@@ -57,22 +83,27 @@ where it was said, and never silently mutated afterward.
 **G2.** Claims restated across time and across traces are recognized as the *same claim*,
 so repetition is counted rather than mistaken for independent confirmation.
 
-**G3.** Each claim carries an explicit **falsifier** — the observation that would show it
+**G3.** Each assertion records its **register** — what kind of statement it was when made:
+requirement, hypothesis, finding, commentary, or question — so that a claim promoted from
+aside to premise is visible as it happens rather than after it fails.
+
+**G4.** Each claim carries an explicit **falsifier** — the observation that would show it
 false — and, where possible, the automated check that implements it.
 
-**G4.** Confidence is computed from evidence with declared rules, decays when its evidence
+**G5.** Confidence is computed from evidence with declared rules, decays when its evidence
 goes stale, and is auditable back to the receipts.
 
-**G5.** The system is **calibrated**: among claims it rated 0.9, close to 90% survive
+**G6.** The system is **calibrated**: among claims it rated 0.9, close to 90% survive
 contact with reality. This is the acceptance test for the whole project.
 
-**G6.** Recurring failure and success patterns (context erosion, circular support,
-single-source amplification) are detected and reported without a human going looking.
+**G7.** Recurring failure and success patterns (commentary promotion, context erosion,
+circular support, single-source amplification) are detected and reported without a human
+going looking.
 
-**G7.** Bookkeeping cost is low enough that it happens by default — agents write to the
+**G8.** Bookkeeping cost is low enough that it happens by default — agents write to the
 ledger in-loop, not in a retrospective annotation session nobody schedules.
 
-## 4. Non-goals
+## 5. Non-goals
 
 - **Not a truth oracle.** ClaimsCheck reports what evidence exists and what it supports.
   It does not adjudicate contested claims, and never marks one refuted on its own judgment
@@ -86,7 +117,7 @@ ledger in-loop, not in a retrospective annotation session nobody schedules.
 - **Not an autonomous adjudicator.** Terminal verdicts on contested claims need a human or
   a deterministic receipt, never an LLM's opinion.
 
-## 5. Meta-risk (stated up front)
+## 6. Meta-risk (stated up front)
 
 ClaimsCheck can fall to its own failure mode. A confidence score displayed in a dashboard
 is exactly the kind of statement that gets repeated until assumed. Two mitigations are
@@ -99,7 +130,7 @@ structural, not advisory:
    documents are ingested as L0 claims with falsifiers attached. If we cannot make our own
    claims climb the ladder, that is the first and most useful finding.
 
-## 6. Initial scope: software testing
+## 7. Initial scope: software testing
 
 Testing claims are the right beachhead because ground truth is cheap and mechanical:
 
@@ -127,7 +158,7 @@ stronger need for explicit falsifiers) → cross-team planning claims. Each step
 receipt availability for reach, and each needs its own calibration study before being
 trusted.
 
-## 7. System shape
+## 8. System shape
 
 ```
   traces                  ledger                        surfaces
@@ -155,7 +186,7 @@ claim-matching half of stage 3 are model-driven and need an eval harness with a 
 Keeping that boundary sharp is a design constraint, not an implementation detail: it is
 what lets us say the scoring is correct even while extraction is still improving.
 
-## 8. Phases
+## 9. Phases
 
 Estimates assume roughly one engineer's sustained attention. Each phase ends with a
 demonstrable artifact, and each is independently useful if the next never happens.
@@ -191,7 +222,10 @@ demonstrable artifact, and each is independently useful if the next never happen
 - Three trace adapters, built in receipt-richness order: agent transcripts, then PR/issue
   threads, then design docs/RFCs. The receipt-rich sources prove the loop before the
   receipt-poor one stresses it.
-- Claim, context, and modality extraction with structured output and span anchoring.
+- Claim, context, modality, and **register** extraction with structured output and span
+  anchoring. Register accuracy is measured on its own, not folded into overall extraction
+  P/R: the commentary-promotion detector is only as good as it, and `commentary` versus
+  `finding` on a terse utterance is the hardest call in the set.
 - Claim normalization and linking (is this the same claim as one we've seen?).
 - Quarantine threshold tuning: the confidence level below which an extraction is stored but
   not scored. Too high and the queue fills and never drains, which is the failure the
@@ -218,8 +252,9 @@ demonstrable artifact, and each is independently useful if the next never happen
   it is bad. A bad curve is a finding, not a failure.
 
 ### P5 — Pattern detection *(2 weeks)*
-- Implement the detector catalog (`docs/PATTERNS.md`): context erosion, hedge decay, circular
-  support, single-source amplification, silent contradiction, orphan entrenchment.
+- Implement the detector catalog (`docs/PATTERNS.md`): commentary promotion, context
+  erosion, hedge decay, circular support, single-source amplification, silent contradiction,
+  orphan entrenchment.
 - Precision-first tuning. A detector below 0.8 precision on the corpus ships off by default;
   false alarms are how this class of tool dies.
 - **Exit:** detectors run over the corpus with per-detector precision reported.
@@ -243,7 +278,7 @@ cut and the two that determine whether any of it is true. The extra week over th
 estimate is the cost of covering three source types rather than one — bought deliberately,
 in exchange for knowing early whether the model generalizes past receipt-rich domains.
 
-## 9. Success criteria
+## 10. Success criteria
 
 The project succeeds if, at the end of P7:
 
@@ -261,7 +296,7 @@ The project succeeds if, at the end of P7:
 Failing (1) or (2) means the model is wrong and should be reworked, not shipped wider.
 Failing (3) means tuning. Failing (5) means the surfaces are wrong, whatever the numbers say.
 
-## 10. Risks
+## 11. Risks
 
 | Risk | Why it bites | Mitigation |
 |---|---|---|
@@ -275,7 +310,7 @@ Failing (3) means tuning. Failing (5) means the surfaces are wrong, whatever the
 | Attribution scoping leaks | Per-claim pseudonyms defeat timestamp correlation, but quoted text does not | Cross-scope views paraphrase or suppress quotes; the explainability cost is real and tracked as an open question (Q6) |
 | Calibration needs resolved outcomes | Confidence cannot be scored until claims resolve, and many never do | Resolution loop built in P3, not P7; explicitly track the never-resolved fraction as its own metric rather than dropping it |
 
-## 11. Immediate next steps
+## 12. Immediate next steps
 
 Q1, Q2, Q3 and Q7 are settled (see `docs/OPEN_QUESTIONS.md`). Two of the remainder gate P1's
 migration and should be answered before code is written:
