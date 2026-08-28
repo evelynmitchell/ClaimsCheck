@@ -230,11 +230,60 @@ core tables, and there is a test that attempts both.
 Derived state (current status, latest score) lives in views over the log rather than in
 mutable columns. Slower; correct by construction; the right trade at this size.
 
-SQLite has no access control, so the attribution boundary above cannot be enforced within
-one file. The assumed shape is a **split store**: a shared ledger plus a per-person
-attribution database that only that person holds, with `actor_ref` a foreign key across the
-boundary rather than a column. This must be settled before the first migration — see
-`OPEN_QUESTIONS.md` Q5.
+### The split store
+
+SQLite has no access control, so the attribution boundary cannot be enforced within one
+file. **Two databases:**
+
+- `ledger.db` — shared. Claims, assertions, contexts, evidence, links, relations, terms,
+  scores, detections. Everything except who said what.
+- `attribution.db` — per person, held only by that person. Their identity secret, and
+  whatever local notes they keep about their own assertions.
+
+Joins across the boundary use SQLite's `ATTACH`, so a person working with both files queries
+them as one database. Someone holding only the shared file sees a complete, queryable ledger
+with pseudonymous actors.
+
+### How `actor_ref` is derived
+
+The obvious implementation is wrong in a way worth stating, because it looks fine: storing a
+stable per-person id in the shared ledger and keeping the id-to-name mapping private. That
+gives every assertion by one person the same value across the whole ledger — a global
+pseudonym, de-anonymizable in an afternoon by correlating assertion timestamps against commit
+history. The private mapping does not help, because the correlation never needs it.
+
+So the shared ledger stores the **per-claim** value directly:
+
+```
+actor_ref = HMAC(actor_secret, claim_id)
+```
+
+- **Keyed, not a plain hash.** `H(name, claim_id)` would be trivially reversible: a team has
+  a handful of members, so an attacker enumerates the names and compares. The secret is what
+  makes the space unsearchable, and it lives only in `attribution.db`.
+- **Within a claim**, one person's assertions share a value — repetition stays countable, and
+  `distinct actors` for entrenchment is a `COUNT(DISTINCT actor_ref)` needing no identity.
+- **Across claims**, the values are unlinkable. This is the property being bought, and it is
+  bought by giving something up (below).
+- **Only the owner can recompute it**, for any claim, using their secret. Their own
+  personal-scope detectors — hedge decay, fast climb — run inside their scope and are
+  impossible to run from outside it.
+- **Agents are exempt.** `actor_kind = agent` stores a plaintext id, discriminated by that
+  column. An agent carries no social cost from being shown to over-claim.
+
+### What this costs
+
+Two things, both accepted deliberately:
+
+1. **No global actor statistics.** "How many distinct humans have asserted anything in this
+   project" is not answerable, because distinctness exists only within a claim. The
+   aggregates that matter — assumption debt per component, detector precision — do not need
+   it. Single-source amplification survives because it traces *provenance* through relation
+   and evidence edges, not actor identity across claims.
+2. **Losing `attribution.db` is unrecoverable.** Without the secret, a person permanently
+   loses the ability to recognize their own assertions; the shared ledger keeps working and
+   their history in it becomes anonymous even to them. There is no recovery path by design,
+   so the secret needs backing up like a key, because that is what it is.
 
 If a shared team ledger becomes necessary, the log ships to Postgres unchanged — the
 append-only design makes that a replication problem rather than a rewrite. Deferring that

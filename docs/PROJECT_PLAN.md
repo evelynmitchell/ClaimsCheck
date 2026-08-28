@@ -361,24 +361,20 @@ Failing (3) means tuning. Failing (5) means the surfaces are wrong, whatever the
 
 ## 12. Immediate next steps
 
-Q1, Q2, Q3 and Q7 are settled (see `docs/OPEN_QUESTIONS.md`). Three of the remainder gate
-P1's migration and should be answered before code is written:
+Q1, Q2, Q3, Q5, Q7 and Q11 are settled (see `docs/OPEN_QUESTIONS.md`). **P1's migration is
+unblocked** — nothing outstanding changes table shape.
 
-1. **Q11 — how formal the semantic layer should be.** Lightweight typed edges (the default),
-   a real reasoner, or a probabilistic model. Decides whether relations are rows with explicit
-   propagation rules or a formalism every claim must satisfy. The recommendation is the
-   lightweight version with the schema kept compatible with a reasoner, on the grounds that
-   the heavier options produce confident output from uncertain inputs — which is the failure
-   this project exists to catch.
-2. **Q5 — attribution storage shape.** Split store (shared ledger + per-person attribution
-   database) or encrypted `actor` fields. Decides whether `actor_ref` is a column or a
-   cross-database key. Blocking for P1.
-3. **Q6 — quoted text in cross-scope views.** A verbatim quote identifies its author however
-   well the ids are pseudonymized. Paraphrase, suppress, or accept the leak. Blocking for
-   the P6 surfaces, and cheaper to decide before spans are designed.
-4. Nominate the seed traces — roughly a dozen of each source type.
-5. Write the annotation guide — per source type, and now also covering term boundaries and
-   relation annotation. Expect relation agreement to be the worst number in the study; it is
-   the hardest judgment being asked of an annotator, and knowing how bad it is before P2
+1. Cut the P1 schema from `docs/DATA_MODEL.md` into a migration: append-only core with
+   `UPDATE`/`DELETE` triggers and a test that attempts both, `review_state` from the start,
+   Term and Relation tables, and the two-database split with `actor_ref` as
+   `HMAC(actor_secret, claim_id)`.
+2. Nominate the seed traces — roughly a dozen of each source type.
+3. Write the annotation guide — per source type, and covering claim boundaries, register, term
+   boundaries, and relations. Expect relation agreement to be the worst number in the study;
+   it is the hardest judgment being asked of an annotator, and knowing how bad it is before P2
    builds an extractor for it is the point.
-6. Cut the P1 schema from `docs/DATA_MODEL.md` into a migration.
+4. **Q6 — quoted text in cross-scope views** remains open. It does not block P1, but it
+   decides what a Span stores, so it is cheaper to answer before spans are built than after.
+   A verbatim quote identifies its author regardless of how good the pseudonyms are, which
+   means the split store does not settle it.
+
