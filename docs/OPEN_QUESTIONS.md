@@ -138,10 +138,38 @@ have annotated data from a receipt-poor domain before committing to one. Still w
 whether you have a specific second domain in mind, since generality bought speculatively is
 usually wasted.
 
-## Q10 — Prior art to stay compatible with
+## Q10 — Prior art to stay compatible with — **now live**
 
-Argumentation frameworks (Toulmin, IBIS), assurance cases (GSN), provenance standards
-(PROV-O), and requirements traceability tooling all overlap this design. The plan uses none
-directly, on the grounds that each carries formalism costs disproportionate to a v1. If you
-want compatibility with any — particularly GSN, if this ever touches safety cases — that
-constrains the data model and should be decided before P1.
+The semantic layer moves this from a nice-to-have to a real fork. Argumentation frameworks
+(Toulmin, IBIS), assurance cases (GSN), and provenance standards (PROV-O) all model roughly
+what `SEMANTICS.md` now models, and each has a documented history of the formalism becoming
+the work.
+
+The current design borrows the *shape* of these (typed relations, evidence-backed edges) while
+staying deliberately informal: no reasoner, no consistency checking, no standard serialization.
+If compatibility with any of them matters — particularly GSN, if this ever touches safety
+cases — that constrains the schema and should be decided before P1's migration.
+
+## Q11 — How formal should the semantic layer be? **(new, and the significant one)**
+
+There is a real fork here, and it is the decision most likely to determine whether the project
+survives contact with a deadline.
+
+1. **Lightweight typed edges (the current default).** Relations are rows with a kind, a
+   polarity, and a confidence. Propagation is a handful of explicit rules. No reasoner, no
+   consistency checking, no formal semantics. Cheap, debuggable, and will miss inferences a
+   real logic would catch.
+2. **A real reasoner** — Datalog, or OWL with an off-the-shelf engine. Gives sound
+   transitive inference, consistency checking, and detects contradictions the rule-based
+   version cannot. Costs a formalization discipline that every claim must then satisfy, and
+   makes extraction much harder: the model must emit well-formed logic, not just a plausible
+   edge.
+3. **Probabilistic graphical model** — a proper joint distribution over claims. The
+   theoretically right answer for calibration, and it needs structure and parameters nobody
+   has, from a graph extracted by a language model with unknown edge accuracy.
+
+**Recommendation: (1), with the schema kept compatible with (2).** The failure mode this
+project exists to catch is unearned confidence, and (2) and (3) both produce confident,
+well-formed output from uncertain inputs — with a provenance trail that looks impeccable. Get
+calibrated with explicit rules first; the reasoner is a P8-or-later question, and only if the
+rules demonstrably miss things that matter.

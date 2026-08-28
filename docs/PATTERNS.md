@@ -20,6 +20,11 @@ qualifiers just got tiring to repeat.
 
 *Example: "the retry logic is safe **for idempotent handlers**" → "the retry logic is safe".*
 
+**Formal shape.** With the semantic layer this stops being a heuristic: erosion is an
+unlicensed move along a `specializes` edge, asserting the parent claim on the child's
+evidence. Support propagates from specialized to general only weakly and never in reverse
+(`SEMANTICS.md` § Propagation rules), so the gap is computable rather than estimated.
+
 **False-positive mode.** Qualifiers legitimately dropped because they were genuinely
 established elsewhere, or omitted as obvious from shared context.
 
@@ -57,7 +62,35 @@ the speaker did not bother to cite — expertise expressed informally. Register 
 also confuse `commentary` and `finding` on terse utterances, which makes this detector's
 precision a direct function of P2's register accuracy. Measure the two together.
 
-### 4. Circular support
+### 4. Definitional drift
+**Signal.** A term used with materially different definitions across assertions, or a term
+whose definition was superseded while claims bound to the old version kept their support.
+
+**Why it matters.** A distinct failure from claim drift and easier to miss. When a definition
+shifts, every claim built on it silently changes proposition while its receipts stay attached
+— the evidence now supports something the claim no longer says. "Covered" meaning line
+coverage and "covered" meaning branch coverage produce identical sentences and different
+facts.
+
+**False-positive mode.** Legitimate refinement of a definition that does not change which
+claims hold under it. Distinguishing a narrowing that matters from one that does not requires
+knowing the claims involved, so this detector is noisy on terms with many bindings.
+
+### 5. Causal promotion
+**Signal.** A relation first asserted as `precursor` or `contributory`, later asserted as
+`necessary` or `sufficient`, with no evidence acquired in between.
+
+**Why it matters.** Commentary promotion moved from the node to the edge, and the single
+detector that most justifies the semantic layer. Engineering causal claims routinely begin as
+"we noticed X before Y" and are restated as "X causes Y"; an observation becomes a mechanism
+with nothing acquired to license it. Downstream this is expensive, because causal edges drive
+blast radius and therefore what the system thinks needs re-checking.
+
+**False-positive mode.** A genuine strengthening whose evidence landed outside the ledger, and
+edge-extraction confusion between `contributory` and `necessary` on hedged phrasing — the same
+weakness as register extraction, on a harder judgment.
+
+### 6. Circular support
 **Signal.** A cycle in the evidence DAG — a claim's support traces back to itself, usually
 through a document that cited it or a summary that restated it.
 
@@ -68,7 +101,7 @@ claim is easily ingested later as a source for it.
 **False-positive mode.** Nearly none, and the reason this detector is worth building first.
 Cycles are structural facts about the graph.
 
-### 5. Single-source amplification
+### 7. Single-source amplification
 **Signal.** Many assertions by many distinct actors, all provenance-traceable to one
 unverified origin.
 
@@ -82,7 +115,7 @@ rather than merely reported — a claim flagged here has its actor-diversity bon
 **False-positive mode.** Genuine independent confirmation that happens to cite the same
 convenient source afterward.
 
-### 6. Orphan entrenchment
+### 8. Orphan entrenchment
 **Signal.** Assumption debt above threshold and rising, with downstream dependence — a
 claim that has become load-bearing while never leaving L0/L1.
 
@@ -92,9 +125,12 @@ the only time the information is worth anything.
 **False-positive mode.** Claims that are genuinely not worth proving. Dismissal with a
 reason is the right outcome, and dismissal rate here is a health metric for the threshold.
 
-### 7. Silent contradiction
-**Signal.** Two claims in the ledger with incompatible content and compatible contexts, both
-carrying non-trivial support.
+### 9. Silent contradiction
+**Signal.** Two claims joined by a `negates` or `contradicts` relation, with compatible
+contexts, both carrying non-trivial support.
+
+Before the semantic layer this detector had no way to know two claims conflict and was a
+statement of intent rather than a query. The relation edge is what makes it implementable.
 
 **Why it matters.** Usually means a context qualifier is missing from one of them — the
 contradiction is the symptom, the unstated scope is the bug.
@@ -102,7 +138,7 @@ contradiction is the symptom, the unstated scope is the bug.
 **False-positive mode.** Context incompatibility that the qualifier model failed to
 represent, which is the same weakness measured in P2.
 
-### 8. Stale guard
+### 10. Stale guard
 **Signal.** A claim at L3/L4 whose supporting test no longer executes the code in its
 subject reference — skipped, deleted, or made vacuous.
 
@@ -112,7 +148,7 @@ rather than earlier.
 
 **False-positive mode.** Coverage tooling gaps, especially with dynamic dispatch.
 
-### 9. Unfalsifiable claim
+### 11. Unfalsifiable claim
 **Signal.** No falsifier could be articulated for a claim, or the proposed falsifier is
 unobservable.
 
@@ -128,15 +164,15 @@ the ladder, so the finding is "sharpen this or accept it stays at L0 forever."
 Worth detecting too. A tool that only reports problems trains people to read it as noise,
 and the successes tell us which practices actually move claims up the ladder.
 
-### 10. Fast climb
+### 12. Fast climb
 A claim reaching L3+ within a short window of first assertion. Identifies the practices and
 the people that convert assertions into receipts efficiently.
 
-### 11. Honest retraction
+### 13. Honest retraction
 An asserted claim later refuted by its own author with evidence, and superseded rather than
 quietly dropped. The healthiest thing in the ledger; it should be visible and credited.
 
-### 12. Qualifier addition
+### 14. Qualifier addition
 Assertions that *narrow* context over time — the inverse of erosion, and the signature of
 a claim being sharpened by contact with reality.
 
