@@ -82,7 +82,36 @@ support and still sit at L0, and the display shows both — inference can tell y
 look, but it cannot pay for a rung.
 
 The ordering principle for turning this on: **enable the inference that lowers confidence
-first, and the inference that raises it last, if at all.** Refutation propagation makes the
+first, and the inference that raises it last, if at all.**
+
+### Propagation is bounded, not transitive closure
+
+Entailment chains are followed to a **bounded depth** (default 3, configurable), and the
+depth reached is recorded in the score's `inputs`.
+
+Unbounded transitive closure is the obvious implementation and it is a trap. Edge accuracy
+compounds along a chain: at 0.9 precision per edge, a five-hop inference is right about 60% of
+the time, and the result is presented with the same authority as a one-hop one. A single wrong
+edge early in a chain poisons everything reachable from it. Bounding the depth caps that blast
+radius, and recording it means an inference's length is visible to anyone judging it.
+
+### No reasoner (Q11)
+
+Relations are rows; propagation is the handful of explicit rules above, implemented in
+ordinary code. There is deliberately **no Datalog or OWL engine, no consistency checking, and
+no formal semantics**.
+
+The limitation this accepts: the system will not notice that its graph is logically
+inconsistent beyond what the contradiction detector finds, and it will miss inferences a real
+logic would catch. That is the intended trade. A reasoner produces confident, well-formed
+conclusions from an uncertain, LLM-extracted graph, complete with a derivation that looks like
+a proof — which is this project's failure mode with better typography.
+
+**The schema stays reasoner-compatible**, so this is reversible. Every relation is expressible
+as a triple with attributes; nothing depends on a construct that a Datalog encoding could not
+represent. If the explicit rules demonstrably miss things that matter, the graph can be
+exported to an engine without a migration. That is a P8-or-later question and should be
+answered with evidence from the rules failing, not in advance. Refutation propagation makes the
 system more skeptical and is safe to ship early. Support propagation makes it more confident
 and every error in the graph inflates a score somewhere downstream.
 
@@ -167,8 +196,8 @@ Three specific hazards:
    only when a definitional dispute actually occurs or a claim cannot be stated without one —
    demand-driven, never up-front.
 
-**Recommended posture: adopt all three as data model immediately, as detection early, as
-inference late.** Recording edges is cheap and they are claims like any other. Querying them
+**Decided posture (Q11 resolved: lightweight typed edges): adopt all three as data model
+immediately, as detection early, as inference late.** Recording edges is cheap and they are claims like any other. Querying them
 for contradictions and promotions is low-risk and surfaces things for humans to judge. Letting
 them move confidence numbers is the part that can make the system actively worse than not
 having it, and it should be earned — with the refutation direction first, since it can only

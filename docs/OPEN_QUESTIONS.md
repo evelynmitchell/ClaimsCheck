@@ -76,11 +76,48 @@ would quietly reintroduce the leaderboard this decision exists to prevent. Per-c
 pseudonyms still let a detector say "four distinct actors, one source" without saying who.
 See `DATA_MODEL.md` § Attribution scoping.
 
+## Q5 — Attribution storage — **RESOLVED: split store**
+
+Two SQLite databases: `ledger.db` shared, `attribution.db` per person and held only by that
+person. Joined via `ATTACH` when both are present.
+
+*Consequence, and the part that is easy to get wrong:* the shared ledger cannot hold a stable
+per-person id with a private mapping to names. That is a global pseudonym, and correlating
+assertion timestamps against commit history de-anonymizes it without ever needing the mapping.
+So the shared ledger stores the per-claim value directly, `actor_ref = HMAC(actor_secret,
+claim_id)` — keyed rather than plainly hashed, because a team is small enough to enumerate.
+
+Accepted costs: no global actor statistics (distinctness exists only within a claim), and
+losing `attribution.db` permanently anonymizes that person's history even to themselves. See
+`DATA_MODEL.md` § The split store.
+
+Cross-repo claims remain deferred to post-v1.
+
+## Q11 — Semantic layer formality — **RESOLVED: lightweight typed edges**
+
+Relations are rows; propagation is explicit rules in ordinary code. No Datalog or OWL engine,
+no consistency checking, no formal semantics.
+
+*Consequences:*
+
+- Propagation is **bounded** (default depth 3, recorded in the score's inputs) rather than
+  transitive closure. Edge accuracy compounds: at 0.9 precision per edge, a five-hop inference
+  is right about 60% of the time while looking exactly as authoritative as a one-hop one.
+- The system will not detect logical inconsistency beyond the contradiction detector, and will
+  miss inferences a real logic would catch. That is the accepted trade.
+- **The schema stays reasoner-compatible.** Every relation is expressible as a triple with
+  attributes, so exporting to an engine later needs no migration. Revisit only with evidence
+  of the explicit rules failing — which makes Q10 (prior-art compatibility) answerable the
+  same way: borrow the shape, defer the formalism.
+
+See `SEMANTICS.md` §§ Propagation is bounded, No reasoner.
+
 ---
 
 # Still open
 
-Each states the **default assumed in the plan**, so work proceeds without an answer.
+Each states the **default assumed in the plan**, so work proceeds without an answer. **None
+of these block P1's migration** — Q5 and Q11, which did, are settled above.
 
 ## Q4 — Confidence representation
 
@@ -89,23 +126,6 @@ score (sortable, calibratable). The ladder is primary in every display.
 
 **Alternative:** Ladder only. Simpler and harder to misuse, but gives up the calibration
 study, which is the strongest evidence the whole approach works.
-
-## Q5 — Local-first or shared service
-
-**Default:** Local-first SQLite, one ledger per repo.
-
-**Now sharper, given Q7:** "personal ledgers, shared aggregates" implies a visibility
-boundary, and SQLite has no access control. Two workable shapes:
-
-1. **Split store** — a shared ledger file plus a per-person attribution file that only that
-   person holds. Keeps local-first, at the cost of joins across two databases.
-2. **Attribution encrypted at rest** — one file, `actor` fields encrypted per-person.
-   Simpler operationally, but a shared key is a fiction and a real one needs key management.
-
-Default is (1). This should be settled before P1's migration, since it decides whether
-`actor` is a column or a foreign key into a separate store.
-
-Cross-repo claims remain deferred to post-v1.
 
 ## Q6 — Trace retention and redaction
 
@@ -138,38 +158,19 @@ have annotated data from a receipt-poor domain before committing to one. Still w
 whether you have a specific second domain in mind, since generality bought speculatively is
 usually wasted.
 
-## Q10 — Prior art to stay compatible with — **now live**
+## Q10 — Prior art to stay compatible with
 
 The semantic layer moves this from a nice-to-have to a real fork. Argumentation frameworks
 (Toulmin, IBIS), assurance cases (GSN), and provenance standards (PROV-O) all model roughly
 what `SEMANTICS.md` now models, and each has a documented history of the formalism becoming
 the work.
 
-The current design borrows the *shape* of these (typed relations, evidence-backed edges) while
-staying deliberately informal: no reasoner, no consistency checking, no standard serialization.
-If compatibility with any of them matters — particularly GSN, if this ever touches safety
-cases — that constrains the schema and should be decided before P1's migration.
+Q11 answers most of this: the design borrows the *shape* (typed relations, evidence-backed
+edges) and stays deliberately informal, with the schema kept expressible as triples so an
+export remains possible.
 
-## Q11 — How formal should the semantic layer be? **(new, and the significant one)**
+**What is still open:** whether to commit to a *standard serialization* — GSN or PROV-O — as
+an output format. That is a smaller decision than adopting the formalism, and it no longer
+blocks P1. It becomes live if this ever touches safety cases, where GSN compatibility is
+sometimes a requirement rather than a preference.
 
-There is a real fork here, and it is the decision most likely to determine whether the project
-survives contact with a deadline.
-
-1. **Lightweight typed edges (the current default).** Relations are rows with a kind, a
-   polarity, and a confidence. Propagation is a handful of explicit rules. No reasoner, no
-   consistency checking, no formal semantics. Cheap, debuggable, and will miss inferences a
-   real logic would catch.
-2. **A real reasoner** — Datalog, or OWL with an off-the-shelf engine. Gives sound
-   transitive inference, consistency checking, and detects contradictions the rule-based
-   version cannot. Costs a formalization discipline that every claim must then satisfy, and
-   makes extraction much harder: the model must emit well-formed logic, not just a plausible
-   edge.
-3. **Probabilistic graphical model** — a proper joint distribution over claims. The
-   theoretically right answer for calibration, and it needs structure and parameters nobody
-   has, from a graph extracted by a language model with unknown edge accuracy.
-
-**Recommendation: (1), with the schema kept compatible with (2).** The failure mode this
-project exists to catch is unearned confidence, and (2) and (3) both produce confident,
-well-formed output from uncertain inputs — with a provenance trail that looks impeccable. Get
-calibrated with explicit rules first; the reasoner is a P8-or-later question, and only if the
-rules demonstrably miss things that matter.
