@@ -42,6 +42,19 @@ A weakly-extracted assertion that may not have been made should not inflate the 
 count any more than it inflates the evidence, or a noisy extractor would manufacture
 assumption debt out of its own errors.
 
+## Derived support is not support
+
+Once claims are connected by relations, some support arrives by inference rather than by
+receipt. It is tracked in a separate channel and never merged into the first.
+
+- **Receipt support** — from evidence attached to this claim. Sets the ladder rung.
+- **Derived support** — propagated along relation edges, attenuated by edge confidence.
+  **Never sets a rung.** A claim can carry high derived support and still sit at L0, and the
+  display shows both.
+
+Inference tells you where to look. It cannot pay for a rung. The propagation rules, and why
+support may flow down an entailment edge but never up one, are in `SEMANTICS.md`.
+
 ## Two numbers, tracked separately
 
 ### Support ∈ [0, 1] — evidence only

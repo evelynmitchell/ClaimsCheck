@@ -87,20 +87,24 @@ so repetition is counted rather than mistaken for independent confirmation.
 requirement, hypothesis, finding, commentary, or question — so that a claim promoted from
 aside to premise is visible as it happens rather than after it fails.
 
-**G4.** Each claim carries an explicit **falsifier** — the observation that would show it
+**G4.** Claims are built from **defined terms** and connected by **typed relations** —
+logical and causal — so that contradiction is a query rather than a hunch, refutation
+propagates to what depends on it, and "X precedes Y" stays distinguishable from "X causes Y".
+
+**G5.** Each claim carries an explicit **falsifier** — the observation that would show it
 false — and, where possible, the automated check that implements it.
 
-**G5.** Confidence is computed from evidence with declared rules, decays when its evidence
+**G6.** Confidence is computed from evidence with declared rules, decays when its evidence
 goes stale, and is auditable back to the receipts.
 
-**G6.** The system is **calibrated**: among claims it rated 0.9, close to 90% survive
+**G7.** The system is **calibrated**: among claims it rated 0.9, close to 90% survive
 contact with reality. This is the acceptance test for the whole project.
 
-**G7.** Recurring failure and success patterns (commentary promotion, context erosion,
+**G8.** Recurring failure and success patterns (commentary promotion, context erosion,
 circular support, single-source amplification) are detected and reported without a human
 going looking.
 
-**G8.** Bookkeeping cost is low enough that it happens by default — agents write to the
+**G9.** Bookkeeping cost is low enough that it happens by default — agents write to the
 ledger in-loop, not in a retrospective annotation session nobody schedules.
 
 ## 5. Non-goals
@@ -212,13 +216,15 @@ demonstrable artifact, and each is independently useful if the next never happen
   `confirmed` rows from the beginning.
 - Attribution split: `actor_ref` as an indirection rather than a name, so the personal-scope
   boundary is structural rather than bolted on later.
+- Term and Relation tables from the first migration. Recording edges is cheap; retrofitting a
+  graph onto a ledger of opaque text is not. Nothing propagates through them yet.
 - CLI: `claim add|show|list`, `evidence add`, `link`, `export`.
 - Manual entry only. Deliberately: the ledger must be useful to a human with no extraction
   at all, or we will not be able to tell whether later failures are storage or extraction.
 - **Exit:** a human can record and query a claim's full history; the store round-trips and
   the append-only property has a test that tries to violate it.
 
-### P2 — Extraction *(4 weeks)*
+### P2 — Extraction *(6 weeks)*
 - Three trace adapters, built in receipt-richness order: agent transcripts, then PR/issue
   threads, then design docs/RFCs. The receipt-rich sources prove the loop before the
   receipt-poor one stresses it.
@@ -227,13 +233,21 @@ demonstrable artifact, and each is independently useful if the next never happen
   P/R: the commentary-promotion detector is only as good as it, and `commentary` versus
   `finding` on a terse utterance is the hardest call in the set.
 - Claim normalization and linking (is this the same claim as one we've seen?).
+- Term extraction and binding, demand-driven: a term is minted when a claim cannot be stated
+  without one or a definitional dispute actually occurs, never up-front.
+- Relation extraction (logical and causal) with **its own precision/recall metrics**, reported
+  separately from claim extraction. Recognizing that one claim entails another is a harder
+  inference than recognizing the claims, and a wrong edge is worse than no edge — it moves
+  confidence through a mechanism that looks rigorous. Low-precision edges are recorded and
+  excluded from propagation.
 - Quarantine threshold tuning: the confidence level below which an extraction is stored but
   not scored. Too high and the queue fills and never drains, which is the failure the
   write-freely policy was chosen to avoid; quarantine depth is monitored, not just set.
 - **Eval harness** against the gold corpus: precision/recall on extraction, accuracy on
   linking, reported per source type.
-- **Exit:** extraction P/R ≥ 0.7 on the held-out split, linking accuracy ≥ 0.8, and a
-  regression run that gates changes to the prompt or model.
+- **Exit:** claim extraction P/R ≥ 0.7 on the held-out split, linking accuracy ≥ 0.8,
+  relation extraction precision ≥ 0.8 (recall may lag — a missing edge costs less than a
+  wrong one), and a regression run that gates changes to the prompt or model.
 
 ### P3 — Evidence binding *(3 weeks)*
 - Receipt connectors: test results (junit-xml first), coverage, CI run metadata, git history.
@@ -244,17 +258,27 @@ demonstrable artifact, and each is independently useful if the next never happen
 - **Exit:** a claim can be walked from assertion to a specific passing test at a specific
   commit, and back.
 
-### P4 — Confidence and decay *(2 weeks)*
+### P4 — Confidence and decay *(3 weeks)*
 - Ladder placement, support and entrenchment scoring, staleness decay on blast-radius change.
+- Blast radius derived from causal edges (`necessary`, `enabling`) where they exist, with
+  import-graph proximity as the fallback rather than the primary mechanism. This is the
+  partial answer to Q8, which the first draft flagged as the weakest part of the model.
+- **Refutation propagation only.** ¬Y ⟹ ¬X up entailment edges is sound and makes the system
+  more skeptical. Support propagation — which makes it more confident, and inflates a score
+  downstream for every wrong edge — is deliberately not in this phase. See P8.
+- Downstream dependence for entrenchment becomes an in-edge count over the relation graph
+  rather than an estimate.
 - **Calibration report**: reliability curve of predicted confidence against resolved outcomes,
   plus Brier score.
 - **Exit:** calibration report runs over the corpus; the curve exists and is honest even if
   it is bad. A bad curve is a finding, not a failure.
 
 ### P5 — Pattern detection *(2 weeks)*
-- Implement the detector catalog (`docs/PATTERNS.md`): commentary promotion, context
-  erosion, hedge decay, circular support, single-source amplification, silent contradiction,
-  orphan entrenchment.
+- Implement the detector catalog (`docs/PATTERNS.md`): commentary promotion, causal
+  promotion, definitional drift, context erosion, hedge decay, circular support,
+  single-source amplification, silent contradiction, orphan entrenchment.
+- Silent contradiction becomes a graph query over `negates`/`contradicts` edges rather than
+  the statement of intent it was before the semantic layer existed.
 - Precision-first tuning. A detector below 0.8 precision on the corpus ships off by default;
   false alarms are how this class of tool dies.
 - **Exit:** detectors run over the corpus with per-detector precision reported.
@@ -273,10 +297,33 @@ demonstrable artifact, and each is independently useful if the next never happen
 - **Exit:** a go/no-go decision on widening scope, made from the data rather than from
   enthusiasm.
 
-**Total to a defensible v1: roughly 18 weeks**, of which P0 and P7 are the two most often
-cut and the two that determine whether any of it is true. The extra week over the original
-estimate is the cost of covering three source types rather than one — bought deliberately,
-in exchange for knowing early whether the model generalizes past receipt-rich domains.
+### P8 — Support propagation *(2 weeks, gated)*
+Deliberately last, and conditional rather than scheduled. Letting support flow down entailment
+edges makes the system more confident, and every wrong edge inflates a score somewhere
+downstream — this is the part that can make the semantic layer actively worse than not having
+it.
+
+- Entry condition: relation extraction precision holding ≥ 0.9 in the dogfood period, and the
+  P7 calibration curve within tolerance *without* support propagation. If the system is not
+  calibrated before inference, adding inference will not fix it.
+- Attenuation by edge confidence; support never propagates upward (affirming the consequent is
+  prohibited structurally, not by convention).
+- Derived support displayed separately from receipt-backed support, and never able to set a
+  ladder rung.
+- **Exit, or the decision not to ship it:** a calibration curve compared against P7's. If
+  propagation degrades calibration, it does not ship, and that is a legitimate outcome.
+
+**Total to a defensible v1: roughly 22 weeks** (24 if P8 ships), of which P0 and P7 are the
+two most often cut and the two that determine whether any of it is true.
+
+The growth from the first draft's 17 weeks is worth naming rather than absorbing: one week for
+covering three source types rather than one, and four for the semantic layer — mostly
+relation extraction in P2, which is the hardest inference in the system, plus propagation and
+blast-radius work in P4. That layer is not optional decoration: without it the
+silent-contradiction detector cannot be implemented, blast radius has no principled basis, and
+refuting evidence stops at the claim it happens to be attached to. But it is where projects of
+this shape reliably die, so the plan front-loads recording edges (cheap) and back-loads
+inferring from them (dangerous).
 
 ## 10. Success criteria
 
@@ -306,21 +353,32 @@ Failing (3) means tuning. Failing (5) means the surfaces are wrong, whatever the
 | Ledger becomes an authority | Our own failure mode, applied to us | Scores never render without receipts; system self-claims live in the ledger |
 | Claim identity is genuinely hard | Same-claim detection is the linchpin for counting repetition, and paraphrase is subtle | Measured explicitly in P2 with its own metric; conservative default (prefer a new claim over a wrong merge — under-counting repetition is safer than fusing distinct claims) |
 | Transcript privacy | Traces contain credentials, customer data, candid remarks | Local-first store; redaction pass at ingest; retention policy set in P1, not later |
+| A wrong relation edge | Moves confidence through a mechanism that looks rigorous, so it is trusted more than a wrong claim would be | Propagation gated on edge confidence; refutation-only until P8; support propagation shipped only if it survives a calibration comparison, and dropped if it does not |
+| Ontology sprawl | A term layer invites defining everything, and the formalism becomes the work — the documented failure of GSN, Toulmin, IBIS and semantic-web provenance | Terms minted demand-driven: only when a claim cannot be stated without one, or a definitional dispute actually occurs |
 | Design-doc claims never leave L0 | Receipt-poor by nature; a third of the corpus may stay unscoreable | Expected, and treated as a measurement of where the falsifier machinery stops working rather than as a defect. Their calibration is reported separately, never pooled with testing claims |
 | Attribution scoping leaks | Per-claim pseudonyms defeat timestamp correlation, but quoted text does not | Cross-scope views paraphrase or suppress quotes; the explainability cost is real and tracked as an open question (Q6) |
 | Calibration needs resolved outcomes | Confidence cannot be scored until claims resolve, and many never do | Resolution loop built in P3, not P7; explicitly track the never-resolved fraction as its own metric rather than dropping it |
 
 ## 12. Immediate next steps
 
-Q1, Q2, Q3 and Q7 are settled (see `docs/OPEN_QUESTIONS.md`). Two of the remainder gate P1's
-migration and should be answered before code is written:
+Q1, Q2, Q3 and Q7 are settled (see `docs/OPEN_QUESTIONS.md`). Three of the remainder gate
+P1's migration and should be answered before code is written:
 
-1. **Q5 — attribution storage shape.** Split store (shared ledger + per-person attribution
+1. **Q11 — how formal the semantic layer should be.** Lightweight typed edges (the default),
+   a real reasoner, or a probabilistic model. Decides whether relations are rows with explicit
+   propagation rules or a formalism every claim must satisfy. The recommendation is the
+   lightweight version with the schema kept compatible with a reasoner, on the grounds that
+   the heavier options produce confident output from uncertain inputs — which is the failure
+   this project exists to catch.
+2. **Q5 — attribution storage shape.** Split store (shared ledger + per-person attribution
    database) or encrypted `actor` fields. Decides whether `actor_ref` is a column or a
    cross-database key. Blocking for P1.
-2. **Q6 — quoted text in cross-scope views.** A verbatim quote identifies its author however
+3. **Q6 — quoted text in cross-scope views.** A verbatim quote identifies its author however
    well the ids are pseudonymized. Paraphrase, suppress, or accept the leak. Blocking for
    the P6 surfaces, and cheaper to decide before spans are designed.
-3. Nominate the seed traces — roughly a dozen of each source type.
-4. Write the annotation guide, with per-source-type sections, and run the agreement check.
-5. Cut the P1 schema from `docs/DATA_MODEL.md` into a migration.
+4. Nominate the seed traces — roughly a dozen of each source type.
+5. Write the annotation guide — per source type, and now also covering term boundaries and
+   relation annotation. Expect relation agreement to be the worst number in the study; it is
+   the hardest judgment being asked of an annotator, and knowing how bad it is before P2
+   builds an extractor for it is the point.
+6. Cut the P1 schema from `docs/DATA_MODEL.md` into a migration.

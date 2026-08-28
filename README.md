@@ -43,8 +43,23 @@ truth is cheap, it widens to contexts where it is not.
 - [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) — goals, phases, deliverables, risks
 - [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) — entities and storage schema
 - [`docs/CONFIDENCE_MODEL.md`](docs/CONFIDENCE_MODEL.md) — the ladder, scoring, decay, calibration
+- [`docs/SEMANTICS.md`](docs/SEMANTICS.md) — terms, logical and causal relations, propagation
 - [`docs/PATTERNS.md`](docs/PATTERNS.md) — the drift and entrenchment detector catalog
 - [`docs/OPEN_QUESTIONS.md`](docs/OPEN_QUESTIONS.md) — decisions still needed
+
+## Claims are structured, not text
+
+A claim is built from **defined terms** and connected to other claims by **typed relations**.
+Logical ones — `entails`, `negates`, `contradicts`, `specializes` — and causal ones, which
+keep `precursor` ("X reliably precedes Y") distinct from `necessary` ("without X, no Y"),
+because the first routinely gets restated as the second with nothing acquired in between.
+
+Inference over that graph is deliberately lopsided: refutation propagates freely, support
+propagates only downward and attenuated, and never upward. The rule is to enable what lowers
+confidence first and what raises it last, if at all.
+
+Relations are themselves claims, with their own evidence and confidence. A graph assembled
+from casual remarks has to behave like casual remarks rather than like a proof.
 
 ## Decided so far
 

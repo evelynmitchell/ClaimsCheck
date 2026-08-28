@@ -34,7 +34,7 @@ assertions of the same claim is what makes that detectable.
 ### Claim
 A normalized proposition. One claim, many assertions.
 
-`id · canonical_text · subject_ref · polarity · context_id · falsifier · status · opened_at · review_state · origin_kind`
+`id · canonical_text · term_bindings · subject_ref · polarity · context_id · falsifier · status · opened_at · review_state · origin_kind`
 
 - `subject_ref` — what the claim is about: a code path, a test, a service, a requirement.
   Links the claim to the artifacts whose change should invalidate it.
@@ -42,6 +42,9 @@ A normalized proposition. One claim, many assertions.
   articulable falsifier is recorded but flagged as unfalsifiable, which is itself the finding.
 - `status` — `open · supported · contested · refuted · stale · retired`
 - `origin_kind` — the register of the claim's *first* assertion. See § Register and origin.
+- `term_bindings` — the term versions this claim's canonical text resolves against. A claim
+  whose bound term has been superseded is flagged for re-binding, never silently
+  re-interpreted under the new definition.
 
 ### Assertion
 One occurrence of a claim being made. **This is the entity that makes repetition countable.**
@@ -95,6 +98,34 @@ A pattern detector's finding.
 
 Dismissals are recorded, not deleted — dismissal rate per detector is how we measure
 precision in the field rather than only on the corpus.
+
+### Term
+A precise, reusable definition of a concept that claims are built from. Versioned and
+append-only: a definition change is a new version with a `supersedes` edge, never an edit,
+and claims bind to a term *version*.
+
+`id · label · definition · synonyms · subject_ref · defined_by · version · supersedes`
+
+`defined_by` points at what grounds the definition — a spec, a code artifact, a test that
+operationalizes it. A term defined only by prose sits at L0 exactly as a claim does.
+
+Claims reference terms rather than bare words, which is what makes linking a tractable
+problem instead of a paraphrase-matching one. See `SEMANTICS.md` § Terms.
+
+### Relation
+A typed, directed edge between two claims — logical or causal.
+
+`id · from_claim_id · to_claim_id · kind · polarity · context_id · claim_id`
+
+- `kind` — logical: `negates · contradicts · entails · equivalent · specializes ·
+  presupposes`; causal: `necessary · sufficient · contributory · enabling · precursor`
+- `polarity` — whether the edge is **asserted** or **refuted**. A refuted `necessary` edge is
+  a recorded negative ("checked; X is not a necessary precursor of Y") and must stay
+  distinguishable from no edge at all ("nobody has checked").
+- `claim_id` — **the edge's own claim record.** Relations are claims: they carry a register,
+  evidence, a ladder rung, and decay like anything else, and propagation strength is gated on
+  that confidence. A graph built from casual remarks must behave like casual remarks, not
+  like a proof. See `SEMANTICS.md` § Edges are claims too.
 
 ## Review state
 
@@ -177,12 +208,17 @@ will readily summarize the discussion as X holding.
 ```
 Trace 1─* Span 1─* Assertion *─1 Claim 1─* Score
                         │                │
-                        └─* Context ─────┘
+                        └─* Context ─────┤
                                          │
                             Claim *─* Evidence  (via Link)
+                            Claim *─* Claim     (via Relation — logical and causal)
+                            Claim *─* Term      (via term_bindings)
                                          │
                             Claim 1─* Detection
 ```
+
+Relation is drawn as a claim-to-claim edge, but every Relation also *has* a Claim of its own
+(`Relation.claim_id`), which is what lets an edge be evidenced, scored, and decayed.
 
 ## Storage
 
@@ -208,7 +244,9 @@ decision costs nothing now.
 
 Claim identity is the hardest problem in the model and gets its own metric in P2.
 
-- Claims are keyed by `(normalized proposition, subject_ref, context compatibility)`.
+- Claims are keyed by `(term-annotated proposition, subject_ref, context compatibility)`.
+  Resolving the words to term versions first is what makes this better-posed than paraphrase
+  matching — and makes its failures predictable, since a mismatch points at a specific term.
 - Matching is conservative: **prefer opening a new claim over merging two.** Under-counting
   repetition weakens a signal; wrongly fusing two distinct claims fabricates evidence for
   one of them, which is the exact harm the project exists to prevent.
